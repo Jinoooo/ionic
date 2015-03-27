@@ -3,10 +3,10 @@
  * @name $ionicFilterBar
  * @module ionic
  * @description
- * The Filter Bar is a animated ionic bar that lets a user search or filter an array of items.
+ * The Filter Bar is an animated bar that allows a user to search or filter an array of items.
  *
  *
- * There are easy ways to cancel the filter bar, such as tapping or swiping the backdrop, clicking the back or cancel
+ * There are multiple ways to cancel the filter bar, such as tapping or swiping the backdrop, clicking the back or cancel
  * button, or even hitting escape on the keyboard for desktop testing.
  *
  *
