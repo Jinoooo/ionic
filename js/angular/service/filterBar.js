@@ -9,7 +9,6 @@
  * There are easy ways to cancel the filter bar, such as tapping or swiping the backdrop, clicking the back or cancel
  * button, or even hitting escape on the keyboard for desktop testing.
  *
- * ![Filter Bar](http://ionicframework.com.s3.amazonaws.com/docs/controllers/actionSheet.gif)
  *
  * @usage
  * To trigger the filterBar, use the $ionicFilterBar service in your angular controllers:
@@ -64,7 +63,7 @@
  *
  */
 IonicModule
-  .factory('$ionicActionSheet', [
+  .factory('$ionicFilterBar', [
     '$rootScope',
     '$compile',
     '$timeout',
