@@ -69,6 +69,24 @@
   }
 }
 
+// Filter Bar Mixins
+// --------------------------------------------------
+
+@mixin filter-bar-style($filter-bar-bg-color, $filter-bar-active-border-color, $filter-bar-text) {
+  .item-input-wrapper {
+    border-bottom: 1px solid $filter-bar-active-border-color;
+    background: $filter-bar-bg-color;
+    input[type="search"] {
+      @include placeholder(lighten($filter-bar-text, 40%));
+      color: $filter-bar-text;
+    }
+    .filter-bar-clear {
+      &:before {
+        color: $filter-bar-text;
+      }
+    }
+  }
+}
 
 // Tab Mixins
 // --------------------------------------------------
