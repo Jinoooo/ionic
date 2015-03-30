@@ -151,7 +151,7 @@ IonicModule
         scrollDelegate: $ionicScrollDelegate,
         filter: $filter('filter'),
         filterProperties: null,
-        debounce: true,
+        debounce: false,
         delay: 300,
         cancelText: 'Cancel',
         cancelOnStateChange: true
