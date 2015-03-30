@@ -98,7 +98,7 @@ IonicModule
      * A new isolated scope will be created for the
      * filter bar and the new filter bar will be appended to the body, covering the header bar.
      *
-     * @param {object} options The options for the filterBar. Properties:
+     * @param {object} opts The options for the filterBar. Properties:
      *
      *  - `[Object]` `items` The array of items to filter.  When the filterBar is cancelled or removed, the original
      *     list of items will be passed to the update callback.
@@ -139,7 +139,6 @@ IonicModule
       var scope = $rootScope.$new(true);
       var backdropShown = false;
       var isKeyboardShown = false;
-      var shouldUseKeyboardPlugin = $ionicPlatform.is('Android') && ionic.keyboard;
 
       //extend scope defaults with supplied options
       extend(scope, {
@@ -179,27 +178,20 @@ IonicModule
         $rootScope.$on('$stateChangeSuccess', function() { scope.cancelFilterBar(); }) :
         noop;
 
-      // Use Keyboard plugin for Android if available.
-      // For hiding keyboard on iOS, blur is preferred over plugin so that the keyboard animates out.
+      // Focus the input which will show the keyboard.
       var showKeyboard = function () {
         if (!isKeyboardShown) {
           isKeyboardShown = true;
-          if (shouldUseKeyboardPlugin) {
-            ionic.keyboard.show();
-          } else {
-            input && input.focus();
-          }
+          input && input.focus();
         }
       };
 
+      // Blur the input which will hide the keyboard.
+      // Even if we need to bring in ionic.keyboard in the future, blur is preferred for iOS so keyboard animates out.
       var hideKeyboard = function () {
         if (isKeyboardShown) {
           isKeyboardShown = false;
-          if (shouldUseKeyboardPlugin) {
-            ionic.keyboard.hide();
-          } else {
-            input && input.blur();
-          }
+          input && input.blur();
         }
       };
 
