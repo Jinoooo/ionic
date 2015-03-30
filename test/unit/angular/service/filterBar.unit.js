@@ -1,14 +1,11 @@
 describe('Ionic FilterBar Service', function() {
 
-  var filterBar, timeout, ionicPlatform;
-
   var items = [
     {id: 1, name: 'carrots', description: 'hate carrots'},
     {id: 2, name: 'fries', description: 'gotta love fries'},
     {id: 3, name: 'squirrel sauce', description: 'yummm'},
     {id: 4, name: 'honey dew melon', description: 'tasty fruit'},
     {id: 5, name: 'people', description: 'wierd..'}
-
   ];
 
   beforeEach(module('ionic', function($provide) {
