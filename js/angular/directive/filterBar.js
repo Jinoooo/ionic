@@ -8,56 +8,71 @@ IonicModule
     '$ionicGesture',
     '$ionicPlatform',
     '$ionicConfig',
-    function ($document, $timeout, $ionicGesture, $ionicPlatform, $ionicConfig) {
-      var filterConfig = $ionicConfig.filterBar;
-      var hasBackdrop = filterConfig.backdrop();
-      var clearIcon = filterConfig.clear();
-      var transition = filterConfig.transition();
-      var theme = filterConfig.theme();
+    function ($document, $timeout, $ionicGesture, $ionicPlatform) {
       var filterBarTemplate;
 
       //create platform specific filterBar template using filterConfig items
       if ($ionicPlatform.is('android')) {
         filterBarTemplate =
-          '<div class="filter-bar-wrapper filter-bar-' + theme + ' filter-bar-transition-'+ transition +'">' +
-            '<div class="bar bar-header bar-' + theme + ' item-input-inset">' +
-              '<button class="filter-bar-cancel button button-icon icon ' + $ionicConfig.backButton.icon() + '"></button>' +
+          '<div class="filter-bar-wrapper filter-bar-{{::config.theme}} filter-bar-transition-{{::config.transition}}">' +
+            '<div class="bar bar-header bar-{{::config.theme}} item-input-inset">' +
+              '<button class="filter-bar-cancel button button-icon icon {{::config.back}}"></button>' +
               '<label class="item-input-wrapper">' +
                 '<input type="search" class="filter-bar-search" ng-model="filterText" placeholder="Search" />' +
-                '<button style="display:none;" class="filter-bar-clear button button-icon icon ' + clearIcon + '"></button>' +
+                '<button style="display:none;" class="filter-bar-clear button button-icon icon {{::config.clear}}"></button>' +
               '</label>' +
             '</div>' +
           '</div>';
       } else {
         filterBarTemplate =
-          '<div class="filter-bar-wrapper filter-bar-' + theme + ' filter-bar-transition-'+ transition +'">' +
-            '<div class="bar bar-header bar-' + theme + ' item-input-inset">' +
+          '<div class="filter-bar-wrapper filter-bar-{{::config.theme}} filter-bar-transition-{{::config.transition}}">' +
+            '<div class="bar bar-header bar-{{::config.theme}} item-input-inset">' +
               '<label class="item-input-wrapper">' +
-                '<i class="icon ' + filterConfig.search() + ' placeholder-icon"></i>' +
+                '<i class="icon {{::config.search}} placeholder-icon"></i>' +
                 '<input type="search" class="filter-bar-search" ng-model="filterText" placeholder="Search"/>' +
-                '<button style="display:none;" class="filter-bar-clear button button-icon icon ' + clearIcon + '"></button>' +
+                '<button style="display:none;" class="filter-bar-clear button button-icon icon {{::config.clear}}"></button>' +
               '</label>' +
               '<button class="filter-bar-cancel button button-clear" ng-bind-html="::cancelText"></button>' +
             '</div>' +
           '</div>';
       }
 
-      if (hasBackdrop) {
-        filterBarTemplate += '<div class="filter-bar-backdrop"></div>';
-      }
-
       return {
         restrict: 'E',
         scope: true,
-        link: function link($scope, $element) {
-          var backdrop = $element.children().eq(1);
+        link: function ($scope, $element) {
           var clearEl = jqLite($element[0].querySelector('.filter-bar-clear'));
           var cancelEl = jqLite($element[0].querySelector('.filter-bar-cancel'));
           var inputEl = $element.find('input');
           var filterTextTimeout;
           var swipeGesture;
+          var backdrop;
+          var backdropClick;
 
           $scope.filterText = '';
+
+          // Action when filter bar is cancelled via backdrop click/swipe or cancel/back buton click.
+          // Invokes cancel function defined in filterBar service
+          var cancelFilterBar = function () {
+            $scope.cancelFilterBar();
+          };
+
+          cancelEl.bind('click', cancelFilterBar);
+
+          // If backdrop is enabled, create and append it to filter, then add click/swipe listeners to cancel filter
+          if ($scope.config.backdrop) {
+            backdrop = jqLite('<div class="filter-bar-backdrop"></div>');
+            $element.append(backdrop);
+
+            backdropClick = function(e) {
+              if (e.target == backdrop[0]) {
+                cancelFilterBar();
+              }
+            };
+
+            backdrop.bind('click', backdropClick);
+            swipeGesture = $ionicGesture.on('swipe', backdropClick, backdrop);
+          }
 
           // No need to hide/show clear button via ng-show since we can easily do this with jqLite.  inline is fastest
           var showClearButton = function () {
@@ -75,8 +90,11 @@ IonicModule
           var clearClick = function () {
             $scope.filterText = '';
             hideClearButton();
-            $scope.showBackdrop(true);
-            $scope.focusInput();
+            ionic.requestAnimationFrame(function () {
+              $scope.showBackdrop();
+              $scope.scrollItemsTop();
+              $scope.focusInput();
+            });
           };
 
           // Since we are wrapping with label, need to bind touchstart rather than click.
@@ -85,16 +103,9 @@ IonicModule
 
           // Bind touchstart so we can regain focus of input even while scrolling
           inputEl.bind('touchstart mousedown', function () {
+            $scope.scrollItemsTop();
             $scope.focusInput();
           });
-
-          // Action when filter bar is cancelled via backdrop click/swipe or cancel/back buton click.
-          // Invokes cancel function defined in filterBar service
-          var cancelFilterBar = function () {
-            $scope.cancelFilterBar();
-          };
-
-          cancelEl.bind('click', cancelFilterBar);
 
           // When a non escape key is pressed, show/hide backdrop/clear button based on filterText length
           var keyUp = function(e) {
@@ -102,25 +113,14 @@ IonicModule
               cancelFilterBar();
             } else if ($scope.filterText && $scope.filterText.length) {
               showClearButton();
-              $scope.hideBackdrop(true);
+              $scope.hideBackdrop();
             } else {
               hideClearButton();
-              $scope.showBackdrop(true);
+              $scope.showBackdrop();
             }
           };
 
           $document.bind('keyup', keyUp);
-
-          var backdropClick = function(e) {
-            if (e.target == backdrop[0]) {
-              cancelFilterBar();
-            }
-          };
-          // Remove filterBar when backdrop is swiped or clicked if applicable
-          if (hasBackdrop) {
-            backdrop.bind('click', backdropClick);
-            swipeGesture = $ionicGesture.on('swipe', backdropClick, backdrop);
-          }
 
           // Calls the services filterItems function with the filterText to filter items
           var filterItems = function () {
@@ -131,7 +131,9 @@ IonicModule
           $scope.$on('$destroy', function() {
             $element.remove();
             $document.unbind('keyup', keyUp);
-            $ionicGesture.off(swipeGesture, 'swipe', backdropClick);
+            if (backdrop) {
+              $ionicGesture.off(swipeGesture, 'swipe', backdropClick);
+            }
           });
 
           // Watch for changes on filterText and call filterItems when filterText has changed.

@@ -12,6 +12,8 @@ describe('Ionic FilterBar Service', function() {
   ];
 
   beforeEach(module('ionic', function($provide) {
+    ionic.requestAnimationFrame = function(cb) { cb(); };
+
     // For the sake of this test, we don't want ionFilterBar to
     // actually compile as a directive.
     // We are only testing the service.
@@ -28,20 +30,17 @@ describe('Ionic FilterBar Service', function() {
     return scope;
   }
 
-  it('show should add classes on showing', inject(function($document) {
+  it('show should add class on showing', inject(function($document) {
     var scope = setup();
     expect($document[0].body.classList.contains('filter-bar-open')).toBe(true);
-    //TODO why is this failing?
-    //expect(scope.element.children().eq(0).hasClass('filter-bar-in')).toBe(true);
   }));
 
-  it('removeFilterBar should remove classes, remove element and destroy scope', inject(function($document, $timeout, $animate, $q, $rootScope) {
+  it('removeFilterBar should remove classes, remove element and destroy scope', inject(function($document, $timeout) {
     var scope = setup();
     spyOn(scope, '$destroy');
     spyOn(scope.element, 'remove');
     scope.removeFilterBar();
     $timeout.flush();
-    $q.flush();
     expect($document[0].body.classList.contains('filter-bar-open')).toBe(false);
     expect(scope.$destroy).toHaveBeenCalled();
     expect(scope.element.remove).toHaveBeenCalled();
@@ -71,33 +70,29 @@ describe('Ionic FilterBar Service', function() {
     expect(scope.update.calls[0].args[0].length).toEqual(0);
   }));
 
-  it('show should showFilterBar and call scope.done', inject(function($timeout, $q) {
+  it('show should showFilterBar and call scope.done', inject(function() {
     var doneSpy = jasmine.createSpy('scope.done');
 
-    //ionic.requestAnimationFrame = function(cb) { cb(); };
     var scope = setup({
       done: doneSpy
     });
 
     scope.showFilterBar();
-    $q.flush();
-    $timeout.flush();
-    //expect(doneSpy).toHaveBeenCalled();
+    expect(doneSpy).toHaveBeenCalled();
   }));
 
-  it('cancelFilterBar should removeFilterBar and call scope.cancel', inject(function($timeout, $q) {
+  it('cancelFilterBar should removeFilterBar and call scope.cancel', inject(function($timeout) {
     var cancelSpy = jasmine.createSpy('scope.cancel');
 
-    //ionic.requestAnimationFrame = function(cb) { cb(); };
     var scope = setup({
       cancel: cancelSpy
     });
 
+    spyOn(scope, 'removeFilterBar').andCallThrough();
     scope.cancelFilterBar();
-    $q.flush();
     $timeout.flush();
-    //expect(scope.removeFilterBar).toHaveBeenCalled();
-    //expect(cancelSpy).toHaveBeenCalled();
+    expect(scope.removeFilterBar).toHaveBeenCalled();
+    expect(cancelSpy).toHaveBeenCalled();
   }));
 
   it('should cancelOnStateChange by default', inject(function($rootScope) {

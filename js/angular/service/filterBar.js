@@ -69,272 +69,286 @@ IonicModule
     '$timeout',
     '$filter',
     '$ionicPlatform',
+    '$ionicConfig',
     '$ionicBody',
     '$ionicScrollDelegate',
-    function($rootScope, $compile, $timeout, $filter, $ionicPlatform, $ionicBody, $ionicScrollDelegate) {
-      var isShown = false;
+    function ($rootScope, $compile, $timeout, $filter, $ionicPlatform, $ionicConfig, $ionicBody, $ionicScrollDelegate) {
+    var isShown = false;
 
-      return {
+    var filterConfig = $ionicConfig.filterBar;
+    var templateConfig = {
+      theme: filterConfig.theme(),
+      transition: filterConfig.transition(),
+      back: $ionicConfig.backButton.icon(),
+      clear: filterConfig.clear(),
+      search: filterConfig.search(),
+      backdrop: filterConfig.backdrop()
+    };
 
-        show: filterBar
+    return {
+      show: filterBar
+    };
+
+    /**
+     * @ngdoc method
+     * @name $ionicFilterBar#show
+     * @description
+     * Load and return a new filter bar.
+     *
+     * A new isolated scope will be created for the
+     * filter bar and the new filter bar will be appended to the body, covering the header bar.
+     *
+     * @param {object} options The options for the filterBar. Properties:
+     *
+     *  - `[Object]` `items` The array of items to filter.  When the filterBar is cancelled or removed, the original
+     *     list of items will be passed to the update callback.
+     *  - `{function=}` `update` Called after the items are filtered.  The new filtered items will be passed
+     *     to this function which can be used to update the items on your controller's scope.
+     *  - `{function=}` `cancel` Called after the filterBar is removed.  This can happen when the cancel
+     *     button is pressed, the backdrop is tapped or swiped, or the back button is pressed.
+     *  - `{function=}` `done` Called after the filterBar is shown.
+     *  - `{object=}` `scrollDelegate` An $ionicScrollDelegate instance for controlling the items scrollView.
+     *     The default value is $ionicScrollDelegate, however you can pass in a more specific scroll delegate,
+     *     for example $ionicScrollDelegate.$getByHandle('myScrollDelegate').
+     *  - `{object=}` `filter` The filter object used to filter the items array.  The default value is
+     *     $filter('filter'), however you can also pass in a custom filter.
+     *  - `[String]` `filterProperties` A string or string array of object properties that will be used to create a
+     *     filter expression object for filtering items in the array.  All properties will be matched against the
+     *     input filter text.  The default value is null, which will create a string filter expression.  The default
+     *     string expression will be equal to the input filter text and will be matched against all properties
+     *     including nested properties of the arrays items.
+     *  - `{boolean=}` `debounce` Used to debounce input so that the filter function gets called at a specified delay,
+     *     which can help boost performance while filtering.  Default value is false
+     *    `{number=}` `delay` Number of milliseconds to delay filtering.  Default value is 300ms.  The debounce
+     *     option must be set to true for this to take effect.
+     *  - `{string=}` `cancelText` the text for the iOS only 'Cancel' button.  Default value is 'Cancel'.
+     *  - `{boolean=}` `cancelOnStateChange` Whether to cancel the filterBar when navigating
+     *     to a new state.  Default value is true.
+     *
+     * @returns {function} `hideFilterBar` A function which, when called, hides & cancels the filter bar.
+     */
+    function filterBar (opts) {
+      //if filterBar is already shown return
+      if (isShown) {
+        return;
+      }
+
+      isShown = true;
+      opts = opts || {};
+
+      var scope = $rootScope.$new(true);
+      var backdropShown = false;
+      var isKeyboardShown = false;
+      var shouldUseKeyboardPlugin = $ionicPlatform.is('Android') && ionic.keyboard;
+
+      //extend scope defaults with supplied options
+      extend(scope, {
+        config: templateConfig,
+        $deregisterBackButton: noop,
+        update: noop,
+        cancel: noop,
+        done: noop,
+        scrollDelegate: $ionicScrollDelegate,
+        filter: $filter('filter'),
+        filterProperties: null,
+        debounce: true,
+        delay: 300,
+        cancelText: 'Cancel',
+        cancelOnStateChange: true
+      }, opts);
+
+      // Compile the template
+      var element = scope.element = $compile('<ion-filter-bar class="filter-bar"></ion-filter-bar>')(scope);
+
+      // Grab required jQLite elements
+      var filterWrapperEl = element.children().eq(0);
+      var input = filterWrapperEl.find('input')[0];
+      var backdropEl = element.children().eq(1);
+
+      //get scrollView
+      var scrollView = scope.scrollDelegate.getScrollView();
+      var canScroll = !!scrollView;
+
+      //get the scroll container if scrolling is available
+      var $scrollContainer;
+      if (canScroll) {
+        $scrollContainer = jqLite(scrollView.__container);
+      }
+
+      var stateChangeListenDone = scope.cancelOnStateChange ?
+        $rootScope.$on('$stateChangeSuccess', function() { scope.cancelFilterBar(); }) :
+        noop;
+
+      // Use Keyboard plugin for Android if available.
+      // For hiding keyboard on iOS, blur is preferred over plugin so that the keyboard animates out.
+      var showKeyboard = function () {
+        if (!isKeyboardShown) {
+          isKeyboardShown = true;
+          if (shouldUseKeyboardPlugin) {
+            ionic.keyboard.show();
+          } else {
+            input && input.focus();
+          }
+        }
       };
 
-      /**
-       * @ngdoc method
-       * @name $ionicFilterBar#show
-       * @description
-       * Load and return a new filter bar.
-       *
-       * A new isolated scope will be created for the
-       * filter bar and the new filter bar will be appended to the body, covering the header bar.
-       *
-       * @param {object} options The options for the filterBar. Properties:
-       *
-       *  - `[Object]` `items` The array of items to filter.  When the filterBar is cancelled or removed, the original
-       *     list of items will be passed to the update callback.
-       *  - `{function=}` `update` Called after the items are filtered.  The new filtered items will be passed
-       *     to this function which can be used to update the items on your controller's scope.
-       *  - `{function=}` `cancel` Called after the filterBar is removed.  This can happen when the cancel
-       *     button is pressed, the backdrop is tapped or swiped, or the back button is pressed.
-       *  - `{function=}` `done` Called after the filterBar is shown.
-       *  - `{object=}` `scrollDelegate` An $ionicScrollDelegate instance for controlling the items scrollView.
-       *     The default value is $ionicScrollDelegate, however you can pass in a more specific scroll delegate,
-       *     for example $ionicScrollDelegate.$getByHandle('myScrollDelegate').
-       *  - `{object=}` `filter` The filter object used to filter the items array.  The default value is
-       *     $filter('filter'), however you can also pass in a custom filter.
-       *  - `[String]` `filterProperties` A string or string array of object properties that will be used to create a
-       *     filter expression object for filtering items in the array.  All properties will be matched against the
-       *     input filter text.  The default value is null, which will create a string filter expression.  The default
-       *     string expression will be equal to the input filter text and will be matched against all properties
-       *     including nested properties of the arrays items.
-       *  - `{boolean=}` `debounce` Used to debounce input so that the filter function gets called at a specified delay,
-       *     which can help boost performance while filtering.  Default value is false
-       *    `{number=}` `delay` Number of milliseconds to delay filtering.  Default value is 300ms.  The debounce
-       *     option must be set to true for this to take effect.
-       *  - `{string=}` `cancelText` the text for the iOS only 'Cancel' button.  Default value is 'Cancel'.
-       *  - `{boolean=}` `cancelOnStateChange` Whether to cancel the filterBar when navigating
-       *     to a new state.  Default value is true.
-       *
-       * @returns {function} `hideFilterBar` A function which, when called, hides & cancels the filter bar.
-       */
-      function filterBar (opts) {
-        //if filterBar is already shown return
-        if (isShown) {
-          return;
-        }
-
-        isShown = true;
-        opts = opts || {};
-
-        var scope = $rootScope.$new(true);
-        var backdropShown = false;
-        var isKeyboardShown = false;
-
-        //extend scope defaults with supplied options
-        //cancelText default is retrieved from ionicConfig in directive and not declared here
-        extend(scope, {
-          $deregisterBackButton: noop,
-          update: noop,
-          cancel: noop,
-          done: noop,
-          scrollDelegate: $ionicScrollDelegate,
-          filter: $filter('filter'),
-          filterProperties: null,
-          debounce: false,
-          delay: 300,
-          cancelText: 'Cancel',
-          cancelOnStateChange: true
-        }, opts);
-
-        // Compile the template
-        var element = scope.element = $compile('<ion-filter-bar class="filter-bar"></ion-filter-bar>')(scope);
-
-        // Grab required jQLite elements
-        var filterBarEl = element.children().eq(0);
-        var input = filterBarEl.find('input')[0];
-        var backdropEl = element.children().eq(1);
-
-        //get scrollView
-        var scrollView = scope.scrollDelegate.getScrollView();
-        var canScroll = !!scrollView;
-
-        //get the scroll container if scrolling is available
-        var $scrollContainer;
-        if (canScroll) {
-          $scrollContainer = jqLite(scrollView.__container);
-        }
-
-        var stateChangeListenDone = scope.cancelOnStateChange ?
-          $rootScope.$on('$stateChangeSuccess', function() { scope.cancelFilterBar(); }) :
-          noop;
-
-        // Keyboard plugin show/hide doesn't let keyboard animate out, so focus/blur is preferred.
-        // If for some platform keyboard plugin is required add show/hide here.
-        var showKeyboard = function () {
-          if (!isKeyboardShown) {
-            isKeyboardShown = true;
-            input.focus();
-          }
-        };
-        var hideKeyboard = function () {
-          if (isKeyboardShown) {
-            isKeyboardShown = false;
-            input.blur();
-          }
-        };
-
-        // When the filtered list is scrolled, we want to hide the keyboard as long as it's not already hidden
-        var handleScroll = function () {
-          if (scrollView.__scrollTop > 0) {
-            hideKeyboard();
-          }
-        };
-
-        // Scrolls the list of items to the top via the scroll delegate
-        scope.scrollItemsTop = function () {
-          canScroll && scope.scrollDelegate.scrollTop && scope.scrollDelegate.scrollTop();
-        };
-
-        // Always show keyboard on search focus.  Setting isKeyboardShown to false forces to show in case it was brought down some other way
-        // When the input gains focus, scroll to the top
-        scope.focusInput = function () {
+      var hideKeyboard = function () {
+        if (isKeyboardShown) {
           isKeyboardShown = false;
-          scope.scrollItemsTop();
-          showKeyboard();
-        };
-
-        // Hides the FilterBar backdrop.  Delay by 200ms unless required to hide immediately.
-        // This allows the filterBar animate out (even if backdrop N/A) and play nice with the keyboard animation.
-        scope.hideBackdrop = function (doImmediate) {
-          var delay = (doImmediate) ? 0 : 200;
-
-          if (backdropEl.length && backdropShown) {
-            backdropShown = false;
-            backdropEl.removeClass('active');
-          }
-
-          return $timeout(noop, delay, false);
-        };
-
-        // Shows the FilterBar backdrop.  Delay by 100ms unless required to show immediately to play nice with the keyboard animation
-        // Also no need to delay for animating in if backdrop not supported
-        scope.showBackdrop = function (doImmediate) {
-          var shouldShow = backdropEl.length && !backdropShown;
-          var show, delay = (doImmediate || !shouldShow) ? 0 : 100;
-
-          if (shouldShow) {
-            backdropShown = true;
-            show = function() {
-              ionic.requestAnimationFrame(function() {
-                backdropEl.addClass('active');
-              });
-            };
-          }
-
-          return $timeout(show || noop, delay, false);
-        };
-
-        // Filters the supplied list of items via the supplied filterText.
-        // How items are filtered depends on the supplied filter object, and expression
-        // Filtered items will be sent to update
-        scope.filterItems = function(filterText) {
-          var filterExp, filteredItems;
-
-          // pass back original list if filterText is empty.  Otherwise filter by supplied properties, or filterText
-          if (!filterText.length) {
-            filteredItems = scope.items;
+          if (shouldUseKeyboardPlugin) {
+            ionic.keyboard.hide();
           } else {
-            if (angular.isArray(scope.filterProperties)) {
-              filterExp = {};
-              forEach(scope.filterProperties, function (property) {
-                filterExp[property] = filterText;
-              });
-            } else if (scope.filterProperties) {
-              filterExp = {};
-              filterExp[scope.filterProperties] = filterText;
-            } else {
-              filterExp = filterText;
-            }
+            input && input.blur();
+          }
+        }
+      };
 
-            filteredItems = scope.filter(scope.items, filterExp);
+      // When the filtered list is scrolled, we want to hide the keyboard as long as it's not already hidden
+      var handleScroll = function () {
+        if (scrollView.__scrollTop > 0) {
+          hideKeyboard();
+        }
+      };
+
+      // Scrolls the list of items to the top via the scroll delegate
+      scope.scrollItemsTop = function () {
+        canScroll && scope.scrollDelegate.scrollTop && scope.scrollDelegate.scrollTop();
+      };
+
+      // Set isKeyboardShown to force showing keyboard on search focus.
+      scope.focusInput = function () {
+        isKeyboardShown = false;
+        showKeyboard();
+      };
+
+      // Hide the filterBar backdrop if in the DOM and not already hidden.
+      scope.hideBackdrop = function () {
+        if (backdropEl.length && backdropShown) {
+          backdropShown = false;
+          backdropEl.removeClass('active');
+        }
+      };
+
+      // Show the filterBar backdrop if in the DOM and not already shown.
+      scope.showBackdrop = function () {
+        if (backdropEl.length && !backdropShown) {
+          backdropShown = true;
+          backdropEl.addClass('active');
+        }
+      };
+
+      // Filters the supplied list of items via the supplied filterText.
+      // How items are filtered depends on the supplied filter object, and expression
+      // Filtered items will be sent to update
+      scope.filterItems = function(filterText) {
+        var filterExp, filteredItems;
+
+        // pass back original list if filterText is empty.  Otherwise filter by supplied properties, or filterText
+        if (!filterText.length) {
+          filteredItems = scope.items;
+        } else {
+          if (angular.isArray(scope.filterProperties)) {
+            filterExp = {};
+            forEach(scope.filterProperties, function (property) {
+              filterExp[property] = filterText;
+            });
+          } else if (scope.filterProperties) {
+            filterExp = {};
+            filterExp[scope.filterProperties] = filterText;
+          } else {
+            filterExp = filterText;
           }
 
-          scope.update(filteredItems);
-          scope.scrollItemsTop();
-        };
+          filteredItems = scope.filter(scope.items, filterExp);
+        }
 
-        // registerBackButtonAction returns a callback to deregister the action
-        scope.$deregisterBackButton = $ionicPlatform.registerBackButtonAction(
-          function() {
-            $timeout(scope.cancelFilterBar);
-          }, 300
-        );
+        scope.update(filteredItems);
+        scope.scrollItemsTop();
+      };
 
-        // Removes the filterBar from the body and cleans up vars/events.  Once the backdrop is hidden we can invoke done
-        scope.removeFilterBar = function(done) {
-          if (scope.removed) return;
+      // registerBackButtonAction returns a callback to deregister the action
+      scope.$deregisterBackButton = $ionicPlatform.registerBackButtonAction(
+        function() {
+          $timeout(scope.cancelFilterBar);
+        }, 300
+      );
 
-          scope.removed = true;
-          filterBarEl.removeClass('filter-bar-in');
+      // Removes the filterBar from the body and cleans up vars/events.  Once the backdrop is hidden we can invoke done
+      scope.removeFilterBar = function(done) {
+        if (scope.removed) return;
+
+        scope.removed = true;
+
+        //animate the filterBar out, hide keyboard and backdrop
+        ionic.requestAnimationFrame(function () {
+          filterWrapperEl.removeClass('filter-bar-in');
           hideKeyboard();
+          scope.hideBackdrop();
+          scope.update(scope.items);
+          scope.scrollItemsTop();
 
-          $timeout(function() {
-            // wait to remove this due to a 300ms delay native
-            // click which would trigging whatever was underneath this
-            $ionicBody.removeClass('filter-bar-open');
-          }, 400);
-          scope.$deregisterBackButton();
-          stateChangeListenDone();
-
-          //hide backdrop then remove filterBar from DOM.  Send update the original list
-          scope.hideBackdrop().then(function() {
-            scope.update(scope.items);
+          //Wait before cleaning up so element isn't removed before filter bar animates out
+          $timeout(function () {
             scope.$destroy();
             element.remove();
-            if (canScroll) {
-              $scrollContainer.off('scroll', handleScroll);
-            }
-            // scope.cancelFilterBar.$scope is defined near the bottom
-            scope.cancelFilterBar.$scope = $scrollContainer = scrollView = filterBarEl = backdropEl = input = null;
-            (done || noop)();
+            scope.cancelFilterBar.$scope = $scrollContainer = scrollView = filterWrapperEl = backdropEl = input = null;
             isShown = false;
-          });
-        };
+            (done || noop)();
+          }, 350);
+        });
 
-        // Appends the filterBar to the body.  Once the backdrop is hidden we can invoke done
-        scope.showFilterBar = function(done) {
+        $timeout(function () {
+          // wait to remove this due to a 300ms delay native
+          // click which would trigging whatever was underneath this
+          $ionicBody.removeClass('filter-bar-open');
+        }, 400);
+
+        scope.$deregisterBackButton();
+        stateChangeListenDone();
+
+        //unbind scroll event
+        if (canScroll) {
+          $scrollContainer.off('scroll', handleScroll);
+        }
+      };
+
+      // Appends the filterBar to the body.  Once the backdrop is hidden we can invoke done
+      scope.showFilterBar = function(done) {
+        if (scope.removed) return;
+
+        $ionicBody.append(element).addClass('filter-bar-open');
+
+        //scroll items to the top before starting the animation
+        scope.scrollItemsTop();
+
+        //start filterBar animation, show backrop and focus the input
+        ionic.requestAnimationFrame(function () {
           if (scope.removed) return;
 
-          $ionicBody.append(element).addClass('filter-bar-open');
+          $timeout(function () {
+            filterWrapperEl.addClass('filter-bar-in');
+            scope.focusInput();
+            scope.showBackdrop();
+            (done || noop)();
+          }, 20, false);
+        });
 
-          //show backdrop then start filterBar animation and focus the input
-          scope.showBackdrop().then(function() {
-            if (scope.removed) return;
+        if (canScroll) {
+          $scrollContainer.on('scroll', handleScroll);
+        }
+      };
 
-            ionic.requestAnimationFrame(function () {
-              $timeout(function () {
-                filterBarEl.addClass('filter-bar-in');
-                scope.focusInput();
-                if (canScroll) {
-                  $scrollContainer.on('scroll', handleScroll);
-                }
-                (done || scope.done)();
-              }, 20, false);
-            });
-          });
-        };
+      // called when the user presses the backdrop, cancel/back button, changes state
+      scope.cancelFilterBar = function() {
+        // after the animation is out, call the cancel callback
+        scope.removeFilterBar(scope.cancel);
+      };
 
-        // called when the user presses the backdrop, cancel/back button, changes state
-        scope.cancelFilterBar = function() {
-          // after the animation is out, call the cancel callback
-          scope.removeFilterBar(scope.cancel);
-        };
+      scope.showFilterBar(scope.done);
 
-        scope.showFilterBar();
+      // Expose the scope on $ssFilterBar's return value for the sake of testing it.
+      scope.cancelFilterBar.$scope = scope;
 
-        // Expose the scope on $ionicFilterBar's return value for the sake of testing it.
-        scope.cancelFilterBar.$scope = scope;
-
-        return scope.cancelFilterBar;
-      }
-    }]);
+      return scope.cancelFilterBar;
+    }
+  }]);
